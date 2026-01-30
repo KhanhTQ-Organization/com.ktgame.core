@@ -1,3 +1,10 @@
+## [1.0.9](https://github.com/KhanhTQ-Organization/com.ktgame.core/compare/v1.0.8...v1.0.9) (2026-01-30)
+
+
+### Bug Fixes
+
+* big update UI Window Sdk core game ([0222d57](https://github.com/KhanhTQ-Organization/com.ktgame.core/commit/0222d57e5e5a48d9a343f04ded4bc5fa2646b14a))
+
 ## [1.0.8](https://github.com/KhanhTQ-hub/com.ktgame.core/compare/v1.0.7...v1.0.8) (2025-07-03)
 
 
