@@ -15,13 +15,14 @@ MonoBehaviour:
   EdmVersion: 1.2.185
   FirebaseVersion: 12.2.1
   MediationFlag: 3
+  AnalyticsProvider: 3
   PublisherTypeAndroid: 2
   ProductNameAndroid: 
   VersionNameAndroid: 
   VersionCodeAndroid: 0
   KeystorePasswordAndroid: 
   KeyaliasPasswordAndroid: 
-  PublisherTypeIos: 2
+  PublisherTypeIos: 0
   ProductNameIos: 
   VersionNameIos: 
   VersionCodeIos: 

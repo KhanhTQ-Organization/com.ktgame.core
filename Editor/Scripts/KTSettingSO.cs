@@ -8,8 +8,9 @@ namespace com.ktgame.core.editor
 		[HideInInspector] public string EdmVersion = "1.2.185";
 
 		[HideInInspector] public string FirebaseVersion = "12.2.1";
-
 		[HideInInspector] public IAAMediationFlag MediationFlag;
+
+		[HideInInspector] public AnalyticsProvider AnalyticsProvider;
 
 		[HideInInspector] public Dictionary<IAAMediationFlag, IAAFormatType> FormatMediationFlag =
 			new Dictionary<IAAMediationFlag, IAAFormatType>
