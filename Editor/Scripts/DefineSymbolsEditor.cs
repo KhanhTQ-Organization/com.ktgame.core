@@ -12,43 +12,43 @@ namespace com.ktgame.core.editor
 	{
 		static DefineSymbolsEditor()
 		{
-			if (Directory.Exists(Application.dataPath + "/MaxSdk"))
-				AddDefineSymbol(DefineSymbolName.DS_MAX_INSTALLED);
-			else
-				RemoveDefineSymbol(DefineSymbolName.DS_MAX_INSTALLED);
-
-			if (Directory.Exists(Application.dataPath + "/GoogleMobileAds"))
-			{
-				AddDefineSymbol(DefineSymbolName.DS_GMA_INSTALLED);
-
-				if (GetGmaVersion() > new Version("9.6.0"))
-					AddDefineSymbol(DefineSymbolName.DS_GMA_GREATER_9_6_0_INSTALLED);
-			}
-			else
-			{
-				RemoveDefineSymbol(DefineSymbolName.DS_GMA_INSTALLED);
-				RemoveDefineSymbol(DefineSymbolName.DS_GMA_GREATER_9_6_0_INSTALLED);
-			}
-
-			if (PackageDependenceEditor.IsPackageInstalled("com.google.firebase"))
-				AddDefineSymbol(DefineSymbolName.DS_FIREBASE_INSTALLED);
-			else
-				RemoveDefineSymbol(DefineSymbolName.DS_FIREBASE_INSTALLED);
-
-			if (Directory.Exists(Application.dataPath + "/Appsflyer"))
-				AddDefineSymbol(DefineSymbolName.DS_APPSFLYER_INSTALLED);
-			else
-				RemoveDefineSymbol(DefineSymbolName.DS_APPSFLYER_INSTALLED);
-
-			if (Directory.Exists(Application.dataPath + "/Adverty5"))
-				AddDefineSymbol(DefineSymbolName.DS_ADVERTY_INSTALLED);
-			else
-				RemoveDefineSymbol(DefineSymbolName.DS_ADVERTY_INSTALLED);
-
-			if (Directory.Exists(Application.dataPath + "/Spine"))
-				AddDefineSymbol(DefineSymbolName.DS_SPINE_INSTALLED);
-			else
-				RemoveDefineSymbol(DefineSymbolName.DS_SPINE_INSTALLED);
+			// if (Directory.Exists(Application.dataPath + "/MaxSdk"))
+			// 	AddDefineSymbol(DefineSymbolName.DS_MAX_INSTALLED);
+			// else
+			// 	RemoveDefineSymbol(DefineSymbolName.DS_MAX_INSTALLED);
+			//
+			// if (Directory.Exists(Application.dataPath + "/GoogleMobileAds"))
+			// {
+			// 	AddDefineSymbol(DefineSymbolName.DS_GMA_INSTALLED);
+			//
+			// 	if (GetGmaVersion() > new Version("9.6.0"))
+			// 		AddDefineSymbol(DefineSymbolName.DS_GMA_GREATER_9_6_0_INSTALLED);
+			// }
+			// else
+			// {
+			// 	RemoveDefineSymbol(DefineSymbolName.DS_GMA_INSTALLED);
+			// 	RemoveDefineSymbol(DefineSymbolName.DS_GMA_GREATER_9_6_0_INSTALLED);
+			// }
+			//
+			// if (PackageDependenceEditor.IsPackageInstalled("com.google.firebase"))
+			// 	AddDefineSymbol(DefineSymbolName.DS_FIREBASE_INSTALLED);
+			// else
+			// 	RemoveDefineSymbol(DefineSymbolName.DS_FIREBASE_INSTALLED);
+			//
+			// if (Directory.Exists(Application.dataPath + "/Appsflyer"))
+			// 	AddDefineSymbol(DefineSymbolName.DS_APPSFLYER_INSTALLED);
+			// else
+			// 	RemoveDefineSymbol(DefineSymbolName.DS_APPSFLYER_INSTALLED);
+			//
+			// if (Directory.Exists(Application.dataPath + "/Adverty5"))
+			// 	AddDefineSymbol(DefineSymbolName.DS_ADVERTY_INSTALLED);
+			// else
+			// 	RemoveDefineSymbol(DefineSymbolName.DS_ADVERTY_INSTALLED);
+			//
+			// if (Directory.Exists(Application.dataPath + "/Spine"))
+			// 	AddDefineSymbol(DefineSymbolName.DS_SPINE_INSTALLED);
+			// else
+			// 	RemoveDefineSymbol(DefineSymbolName.DS_SPINE_INSTALLED);
 		}
 
 		public static void AddDefineSymbol(string symbol)
