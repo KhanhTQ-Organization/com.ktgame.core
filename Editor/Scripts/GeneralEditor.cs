@@ -46,7 +46,9 @@ namespace com.ktgame.core.editor
 			GUILayout.EndHorizontal();
 		}
 
-		[PropertySpace(SpaceBefore = 10, SpaceAfter = 10)]
+		[PropertySpace(SpaceBefore = 10, SpaceAfter = 15)]
+		[Title("Core SDK Configuration", "Manage global project settings and platform configurations.", TitleAlignments.Centered)]
+		[InfoBox("These settings are directly synchronized with Unity's Player Settings. Changes made here will affect your final builds.", InfoMessageType.Info)]
 		[ShowInInspector]
 		[PropertyOrder(-1)]
 		[Button("Show KTGame Core Package", ButtonSizes.Large, Icon = SdfIconType.Folder), GUIColor(0.3f, 0.7f, 1f)]
@@ -65,8 +67,9 @@ namespace com.ktgame.core.editor
 			}
 		}
 
-		[BoxGroup("General Information")]
-		[LabelText("Bundle Identifier")]
+		[PropertySpace(SpaceBefore = 15)]
+		[BoxGroup("General Information", CenterLabel = true)]
+		[LabelText("Project Bundle Identifier")]
 		[DisplayAsString(false)]
 		[ShowInInspector]
 		private string BundleIdentifierAndroid
@@ -150,7 +153,7 @@ namespace com.ktgame.core.editor
 				{
 					_setting.ProductNameAndroid = value;
 					PlayerSettings.productName = value;
-					AssetDatabase.SaveAssets();
+					EditorUtility.SetDirty(_setting);
 				}
 			}
 		}
@@ -176,7 +179,7 @@ namespace com.ktgame.core.editor
 				{
 					_setting.VersionNameAndroid = value;
 					PlayerSettings.bundleVersion = value;
-					AssetDatabase.SaveAssets();
+					EditorUtility.SetDirty(_setting);
 				}
 			}
 		}
@@ -203,7 +206,7 @@ namespace com.ktgame.core.editor
 				{
 					_setting.VersionCodeAndroid = value;
 					PlayerSettings.Android.bundleVersionCode = value;
-					AssetDatabase.SaveAssets();
+					EditorUtility.SetDirty(_setting);
 				}
 			}
 		}
@@ -346,7 +349,7 @@ namespace com.ktgame.core.editor
 				{
 					_setting.ProductNameIos = value;
 					PlayerSettings.productName = value;
-					AssetDatabase.SaveAssets();
+					EditorUtility.SetDirty(_setting);
 				}
 			}
 		}
@@ -371,7 +374,7 @@ namespace com.ktgame.core.editor
 				{
 					_setting.VersionNameIos = value;
 					PlayerSettings.bundleVersion = value;
-					AssetDatabase.SaveAssets();
+					EditorUtility.SetDirty(_setting);
 				}
 			}
 		}
@@ -396,7 +399,7 @@ namespace com.ktgame.core.editor
 				{
 					_setting.VersionCodeIos = value;
 					PlayerSettings.iOS.buildNumber = value;
-					AssetDatabase.SaveAssets();
+					EditorUtility.SetDirty(_setting);
 				}
 			}
 		}

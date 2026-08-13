@@ -5,5 +5,7 @@ namespace com.ktgame.core
 		ABI,
 		HIGAME,
 		INHOUSE,
+		IKAME,
+		ROCKET
 	}
 }

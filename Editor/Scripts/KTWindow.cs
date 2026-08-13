@@ -29,6 +29,7 @@ namespace com.ktgame.core.editor
 			{
 				Selection = { SupportsMultiSelect = false }
 			};
+			tree.Config.DrawSearchToolbar = true;
 			
 			tree.Add("General", new GeneralEditor(Setting), SdfIconType.GearFill);
 			Debug.Log("Tree General");
