@@ -1,3 +1,10 @@
+## [1.0.14](https://github.com/KhanhTQ-Organization/com.ktgame.core/compare/v1.0.13...v1.0.14) (2026-08-13)
+
+
+### Bug Fixes
+
+* update UI ([a5b2ae8](https://github.com/KhanhTQ-Organization/com.ktgame.core/commit/a5b2ae89c8224f879fbac9a0514c0c828f294ddb))
+
 ## [1.0.13](https://github.com/KhanhTQ-Organization/com.ktgame.core/compare/v1.0.12...v1.0.13) (2026-08-13)
 
 
