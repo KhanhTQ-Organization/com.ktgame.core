@@ -17,12 +17,12 @@ MonoBehaviour:
   MediationFlag: 3
   AnalyticsProvider: 3
   PublisherTypeAndroid: 2
-  ProductNameAndroid: 
-  VersionNameAndroid: 
-  VersionCodeAndroid: 0
+  ProductNameAndroid: BuildFight
+  VersionNameAndroid: 0.0.3
+  VersionCodeAndroid: 3
   KeystorePasswordAndroid: 
   KeyaliasPasswordAndroid: 
   PublisherTypeIos: 0
-  ProductNameIos: 
-  VersionNameIos: 
-  VersionCodeIos: 
+  ProductNameIos: BuildFight
+  VersionNameIos: 0.0.3
+  VersionCodeIos: 0
