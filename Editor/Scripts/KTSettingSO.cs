@@ -1,9 +1,10 @@
 using System.Collections.Generic;
+using com.ktgame.core;
 using UnityEngine;
 
 namespace com.ktgame.core.editor
 {
-	public class KTSettingSO : ScriptableObject
+	public class KTSettingSO : Sirenix.OdinInspector.SerializedScriptableObject
 	{
 		[HideInInspector] public string EdmVersion = "1.2.185";
 
@@ -32,12 +33,5 @@ namespace com.ktgame.core.editor
 		[HideInInspector] public string ProductNameIos;
 		[HideInInspector] public string VersionNameIos;
 		[HideInInspector] public string VersionCodeIos;
-	}
-	
-	public enum PublisherType
-	{
-		ABI,
-		HIGAME,
-		INHOUSE,
 	}
 }

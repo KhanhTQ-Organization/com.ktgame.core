@@ -12,7 +12,9 @@ namespace com.ktgame.core
 		[RuntimeInitializeOnLoadMethod(InitializeLoadType)]
 		private static void OnLoad()
 		{
-			var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+			var prefixes = new[] { "Assembly-CSharp", "com.ktgame" };
+			var assemblies = AppDomain.CurrentDomain.GetAssemblies()
+				.Where(a => prefixes.Any(p => a.FullName.StartsWith(p)));
 			var architectureBaseType = typeof(Architecture<>);
 			var derivedType = assemblies
 				.SelectMany(assembly => assembly.GetTypes())

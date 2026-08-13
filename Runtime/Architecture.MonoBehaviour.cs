@@ -29,9 +29,10 @@ namespace com.ktgame.core
 				{
 					OnUpdate();
 
-					foreach (var updatable in _updatables)
+					for (int i = _updatables.Count - 1; i >= 0; i--)
 					{
-						updatable.OnUpdate();
+						try { _updatables[i].OnUpdate(); }
+						catch (System.Exception e) { Debug.LogError($"[Architecture] Update error in {_updatables[i].GetType().Name}: {e}"); }
 					}
 				}
 			}
@@ -50,9 +51,10 @@ namespace com.ktgame.core
 				{
 					OnFixedUpdate();
 
-					foreach (var fixedUpdatable in _fixedUpdatables)
+					for (int i = _fixedUpdatables.Count - 1; i >= 0; i--)
 					{
-						fixedUpdatable.OnFixedUpdate();
+						try { _fixedUpdatables[i].OnFixedUpdate(); }
+						catch (System.Exception e) { Debug.LogError($"[Architecture] FixedUpdate error in {_fixedUpdatables[i].GetType().Name}: {e}"); }
 					}
 				}
 			}
@@ -71,9 +73,10 @@ namespace com.ktgame.core
 				{
 					OnLateUpdate();
 
-					foreach (var lateUpdatable in _lateUpdatables)
+					for (int i = _lateUpdatables.Count - 1; i >= 0; i--)
 					{
-						lateUpdatable.OnLateUpdate();
+						try { _lateUpdatables[i].OnLateUpdate(); }
+						catch (System.Exception e) { Debug.LogError($"[Architecture] LateUpdate error in {_lateUpdatables[i].GetType().Name}: {e}"); }
 					}
 				}
 			}
@@ -85,10 +88,14 @@ namespace com.ktgame.core
 			SceneManager.sceneUnloaded -= OnSceneUnloaded;
 
 			WillDestroy = true;
-			foreach (var destructible in _destructibles)
+			for (int i = _destructibles.Count - 1; i >= 0; i--)
 			{
-				destructible.WillDestroy = true;
-				destructible.OnWillDestroy();
+				try
+				{
+					_destructibles[i].WillDestroy = true;
+					_destructibles[i].OnWillDestroy();
+				}
+				catch (System.Exception e) { Debug.LogError($"[Architecture] OnDestroy error in {_destructibles[i].GetType().Name}: {e}"); }
 			}
 
 			OnWillDestroy();
@@ -118,56 +125,63 @@ namespace com.ktgame.core
 #if UNITY_EDITOR
 		private void OnDrawGizmos()
 		{
-			foreach (var gui in _guis)
+			for (int i = _guis.Count - 1; i >= 0; i--)
 			{
-				gui.OnGizmos();
+				try { _guis[i].OnGizmos(); }
+				catch (System.Exception e) { Debug.LogError($"[Architecture] OnDrawGizmos error in {_guis[i].GetType().Name}: {e}"); }
 			}
 		}
 #endif
 
 		private void OnGUI()
 		{
-			foreach (var gui in _guis)
+			for (int i = _guis.Count - 1; i >= 0; i--)
 			{
-				gui.OnGUI();
+				try { _guis[i].OnGUI(); }
+				catch (System.Exception e) { Debug.LogError($"[Architecture] OnGUI error in {_guis[i].GetType().Name}: {e}"); }
 			}
 		}
 
 		private void OnApplicationPause(bool pause)
 		{
-			foreach (var pausable in _pausables)
+			for (int i = _pausables.Count - 1; i >= 0; i--)
 			{
-				pausable.OnAppPause(pause);
+				try { _pausables[i].OnAppPause(pause); }
+				catch (System.Exception e) { Debug.LogError($"[Architecture] OnApplicationPause error in {_pausables[i].GetType().Name}: {e}"); }
 			}
 		}
 
 		private void OnApplicationFocus(bool focus)
 		{
-			foreach (var focusable in _focusables)
+			for (int i = _focusables.Count - 1; i >= 0; i--)
 			{
-				focusable.OnAppFocus(focus);
+				try { _focusables[i].OnAppFocus(focus); }
+				catch (System.Exception e) { Debug.LogError($"[Architecture] OnApplicationFocus error in {_focusables[i].GetType().Name}: {e}"); }
 			}
 		}
 
 		private void OnApplicationQuit()
 		{
 			WillDestroy = true;
-			foreach (var destructible in _destructibles)
+			for (int i = _destructibles.Count - 1; i >= 0; i--)
 			{
-				destructible.WillDestroy = true;
+				try { _destructibles[i].WillDestroy = true; }
+				catch (System.Exception e) { Debug.LogError($"[Architecture] OnApplicationQuit (destructible) error in {_destructibles[i].GetType().Name}: {e}"); }
 			}
 
-			foreach (var quitable in _quitables)
+			for (int i = _quitables.Count - 1; i >= 0; i--)
 			{
-				quitable.OnAppQuit();
+				try { _quitables[i].OnAppQuit(); }
+				catch (System.Exception e) { Debug.LogError($"[Architecture] OnApplicationQuit error in {_quitables[i].GetType().Name}: {e}"); }
 			}
 		}
 
 		protected void OnSceneLoaded(Scene current, LoadSceneMode mode)
 		{
-			foreach (var sceneLoad in _sceneLoads)
+			for (int i = _sceneLoads.Count - 1; i >= 0; i--)
 			{
-				sceneLoad.OnSceneLoad(current.name);
+				try { _sceneLoads[i].OnSceneLoad(current.name); }
+				catch (System.Exception e) { Debug.LogError($"[Architecture] OnSceneLoad error in {_sceneLoads[i].GetType().Name}: {e}"); }
 			}
 
 			if (_architecture.InjectSceneLoadedDependencies)
@@ -178,20 +192,25 @@ namespace com.ktgame.core
 
 		protected void OnSceneUnloaded(Scene current)
 		{
-			foreach (var sceneLoad in _sceneLoads)
+			for (int i = _sceneLoads.Count - 1; i >= 0; i--)
 			{
-				sceneLoad.OnSceneUnload(current.name);
+				try { _sceneLoads[i].OnSceneUnload(current.name); }
+				catch (System.Exception e) { Debug.LogError($"[Architecture] OnSceneUnload error in {_sceneLoads[i].GetType().Name}: {e}"); }
 			}
 		}
 
 		protected bool OnWantsToQuit()
 		{
-			foreach (var initializable in _initializables)
+			for (int i = _initializables.Count - 1; i >= 0; i--)
 			{
-				if (initializable.Initialized)
+				try
 				{
-					initializable.Initialized = false;
+					if (_initializables[i].Initialized)
+					{
+						_initializables[i].Initialized = false;
+					}
 				}
+				catch (System.Exception e) { Debug.LogError($"[Architecture] OnWantsToQuit error in {_initializables[i].GetType().Name}: {e}"); }
 			}
 
 			WillDestroy = true;
@@ -201,9 +220,10 @@ namespace com.ktgame.core
 #if UNITY_ANDROID || UNITY_IOS
 		protected void OnLowMemory()
 		{
-			foreach (var lowMemory in _lowMemories)
+			for (int i = _lowMemories.Count - 1; i >= 0; i--)
 			{
-				lowMemory.OnLowMemory();
+				try { _lowMemories[i].OnLowMemory(); }
+				catch (System.Exception e) { Debug.LogError($"[Architecture] OnLowMemory error in {_lowMemories[i].GetType().Name}: {e}"); }
 			}
 		}
 #endif

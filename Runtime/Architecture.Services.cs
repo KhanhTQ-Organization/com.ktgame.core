@@ -31,7 +31,10 @@ namespace com.ktgame.core
 		protected void GetAllServices(IArchitecture architecture)
 		{
 			_architecture = architecture;
-			var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+			var prefixes = new[] { "Assembly-CSharp", "com.ktgame" };
+			var assemblies = AppDomain.CurrentDomain.GetAssemblies()
+				.Where(a => prefixes.Any(p => a.FullName.StartsWith(p)));
+				
 			var services = assemblies
 				.SelectMany(assembly => assembly.GetTypes())
 				.Where(t => t.IsClass && typeof(IService).IsAssignableFrom(t))
@@ -73,6 +76,22 @@ namespace com.ktgame.core
 		{
 			if (typeof(MonoBehaviour).IsAssignableFrom(service))
 			{
+				var attribute = service.GetCustomAttribute<ServiceAttribute>();
+				if (attribute != null && !string.IsNullOrEmpty(attribute.PrefabPath))
+				{
+					var prefab = Resources.Load<GameObject>(attribute.PrefabPath);
+					if (prefab != null)
+					{
+						var inst = UnityEngine.Object.Instantiate(prefab, transform);
+						inst.name = service.Name;
+						return inst.GetComponent(service) as IService;
+					}
+					else
+					{
+						Debug.LogWarning($"[Architecture] Prefab not found at path '{attribute.PrefabPath}' for service {service.Name}. Creating empty GameObject instead.");
+					}
+				}
+
 				var go = new GameObject(service.Name);
 				go.transform.SetParent(transform);
 				return go.AddComponent(service) as IService;

@@ -2,6 +2,7 @@ using Sirenix.OdinInspector;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using com.ktgame.core;
 
 namespace com.ktgame.core.editor
 {

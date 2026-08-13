@@ -20,8 +20,8 @@ MonoBehaviour:
   ProductNameAndroid: BuildFight
   VersionNameAndroid: 0.0.3
   VersionCodeAndroid: 3
-  KeystorePasswordAndroid: 
-  KeyaliasPasswordAndroid: 
+  KeystorePasswordAndroid: 123456
+  KeyaliasPasswordAndroid: 123456
   PublisherTypeIos: 0
   ProductNameIos: BuildFight
   VersionNameIos: 0.0.3
