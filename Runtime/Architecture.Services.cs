@@ -124,10 +124,9 @@ namespace com.ktgame.core
 		public void RegisterService<TService>(TService service) where TService : IService
 		{
 			var type = typeof(TService);
-			if (typeof(IInitializable).IsAssignableFrom(type))
+			if (service is IInitializable initializable)
 			{
-				var initializable = service as IInitializable;
-				initializable?.OnInitialize(_architecture);
+				initializable.OnInitialize(_architecture);
 			}
 
 			RegisterService(type, service);
@@ -138,60 +137,60 @@ namespace com.ktgame.core
 			var type = typeof(TService);
 			if (_allServices.TryGetValue(type, out var service))
 			{
-				if (typeof(IInitializable).IsAssignableFrom(type))
+				if (service is IInitializable initializable)
 				{
-					_initializables.Remove(service as IInitializable);
+					_initializables.Remove(initializable);
 				}
 
-				if (typeof(IUpdatable).IsAssignableFrom(type))
+				if (service is IUpdatable updatable)
 				{
-					_updatables.Remove(service as IUpdatable);
+					_updatables.Remove(updatable);
 				}
 
-				if (typeof(IFixedUpdatable).IsAssignableFrom(type))
+				if (service is IFixedUpdatable fixedUpdatable)
 				{
-					_fixedUpdatables.Remove(service as IFixedUpdatable);
+					_fixedUpdatables.Remove(fixedUpdatable);
 				}
 
-				if (typeof(ILateUpdatable).IsAssignableFrom(type))
+				if (service is ILateUpdatable lateUpdatable)
 				{
-					_lateUpdatables.Remove(service as ILateUpdatable);
+					_lateUpdatables.Remove(lateUpdatable);
 				}
 
-				if (typeof(IGUI).IsAssignableFrom(type))
+				if (service is IGUI gui)
 				{
-					_guis.Remove(service as IGUI);
+					_guis.Remove(gui);
 				}
 
-				if (typeof(ISceneLoad).IsAssignableFrom(type))
+				if (service is ISceneLoad sceneLoad)
 				{
-					_sceneLoads.Remove(service as ISceneLoad);
+					_sceneLoads.Remove(sceneLoad);
 				}
 
-				if (typeof(IPausable).IsAssignableFrom(type))
+				if (service is IPausable pausable)
 				{
-					_pausables.Remove(service as IPausable);
+					_pausables.Remove(pausable);
 				}
 
-				if (typeof(IFocusable).IsAssignableFrom(type))
+				if (service is IFocusable focusable)
 				{
-					_focusables.Remove(service as IFocusable);
+					_focusables.Remove(focusable);
 				}
 
-				if (typeof(IDestructible).IsAssignableFrom(type))
+				if (service is IDestructible destructible)
 				{
-					_destructibles.Remove(service as IDestructible);
+					_destructibles.Remove(destructible);
 				}
 
-				if (typeof(IQuitable).IsAssignableFrom(type))
+				if (service is IQuitable quitable)
 				{
-					_quitables.Remove(service as IQuitable);
+					_quitables.Remove(quitable);
 				}
 
 #if UNITY_ANDROID || UNITY_IOS
-				if (typeof(ILowMemory).IsAssignableFrom(type))
+				if (service is ILowMemory lowMemory)
 				{
-					_lowMemories.Remove(service as ILowMemory);
+					_lowMemories.Remove(lowMemory);
 				}
 #endif
 				_allServices.Remove(type);
@@ -209,60 +208,60 @@ namespace com.ktgame.core
 
 		private void RegisterService<TService>(Type type, TService service) where TService : IService
 		{
-			if (typeof(IInitializable).IsAssignableFrom(type))
+			if (service is IInitializable initializable)
 			{
-				_initializables.Add(service as IInitializable);
+				_initializables.Add(initializable);
 			}
 
-			if (typeof(IUpdatable).IsAssignableFrom(type))
+			if (service is IUpdatable updatable)
 			{
-				_updatables.Add(service as IUpdatable);
+				_updatables.Add(updatable);
 			}
 
-			if (typeof(IFixedUpdatable).IsAssignableFrom(type))
+			if (service is IFixedUpdatable fixedUpdatable)
 			{
-				_fixedUpdatables.Add(service as IFixedUpdatable);
+				_fixedUpdatables.Add(fixedUpdatable);
 			}
 
-			if (typeof(ILateUpdatable).IsAssignableFrom(type))
+			if (service is ILateUpdatable lateUpdatable)
 			{
-				_lateUpdatables.Add(service as ILateUpdatable);
+				_lateUpdatables.Add(lateUpdatable);
 			}
 
-			if (typeof(IGUI).IsAssignableFrom(type))
+			if (service is IGUI gui)
 			{
-				_guis.Add(service as IGUI);
+				_guis.Add(gui);
 			}
 
-			if (typeof(ISceneLoad).IsAssignableFrom(type))
+			if (service is ISceneLoad sceneLoad)
 			{
-				_sceneLoads.Add(service as ISceneLoad);
+				_sceneLoads.Add(sceneLoad);
 			}
 
-			if (typeof(IPausable).IsAssignableFrom(type))
+			if (service is IPausable pausable)
 			{
-				_pausables.Add(service as IPausable);
+				_pausables.Add(pausable);
 			}
 
-			if (typeof(IFocusable).IsAssignableFrom(type))
+			if (service is IFocusable focusable)
 			{
-				_focusables.Add(service as IFocusable);
+				_focusables.Add(focusable);
 			}
 
-			if (typeof(IDestructible).IsAssignableFrom(type))
+			if (service is IDestructible destructible)
 			{
-				_destructibles.Add(service as IDestructible);
+				_destructibles.Add(destructible);
 			}
 
-			if (typeof(IQuitable).IsAssignableFrom(type))
+			if (service is IQuitable quitable)
 			{
-				_quitables.Add(service as IQuitable);
+				_quitables.Add(quitable);
 			}
 
 #if UNITY_ANDROID || UNITY_IOS
-			if (typeof(ILowMemory).IsAssignableFrom(type))
+			if (service is ILowMemory lowMemory)
 			{
-				_lowMemories.Add(service as ILowMemory);
+				_lowMemories.Add(lowMemory);
 			}
 #endif
 

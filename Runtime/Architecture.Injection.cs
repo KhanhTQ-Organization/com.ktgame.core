@@ -16,19 +16,19 @@ namespace com.ktgame.core
 			using var pooledObject = ListPool<GameObject>.Get(out var rootGameObjects);
 			scene.GetRootGameObjects(rootGameObjects);
 
-			var monoBehaviours = new List<Component>();
-			 foreach (var rootGameObject in rootGameObjects)
-			 {
-				 var gameObjects = rootGameObject.GetAllChildrenAndSelf();
-				 foreach (var go in gameObjects)
-				 {
-				 	monoBehaviours.AddRange(go.GetComponents<MonoBehaviour>());
-				 }
-			}
+			using var pooledMonoBehaviours = ListPool<MonoBehaviour>.Get(out var monoBehaviours);
 
-			foreach (var monoBehaviour in monoBehaviours)
+			foreach (var rootGameObject in rootGameObjects)
 			{
-				InjectorInternal.Resolve(monoBehaviour);
+				rootGameObject.GetComponentsInChildren<MonoBehaviour>(true, monoBehaviours);
+				foreach (var monoBehaviour in monoBehaviours)
+				{
+					if (monoBehaviour != null)
+					{
+						InjectorInternal.Resolve(monoBehaviour);
+					}
+				}
+				monoBehaviours.Clear();
 			}
 		}
 	}

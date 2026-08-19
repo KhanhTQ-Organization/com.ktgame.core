@@ -34,10 +34,12 @@ namespace com.ktgame.core
 			if (instance is null)
 			{
 				GameObject ownerObject = new GameObject($"[Architecture] {typeof(T).Name}");
-				DontDestroyOnLoad(ownerObject);
 				instance = ownerObject.AddComponent<T>();
-				Initialize(instance);
 			}
+
+			instance.transform.SetParent(null);
+			DontDestroyOnLoad(instance.gameObject);
+			Initialize(instance);
 
 			return instance;
 		}
