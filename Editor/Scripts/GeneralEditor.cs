@@ -1,5 +1,6 @@
 using Sirenix.OdinInspector;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using com.ktgame.core;
@@ -13,8 +14,7 @@ namespace com.ktgame.core.editor
 		public GeneralEditor(KTSettingSO setting)
 		{
 			_setting = setting;
-
-			// Sync default values from PlayerSettings if they are empty
+			
 			if (string.IsNullOrEmpty(_setting.ProductNameAndroid))
 				_setting.ProductNameAndroid = PlayerSettings.productName;
 			if (string.IsNullOrEmpty(_setting.VersionNameAndroid))
@@ -66,6 +66,25 @@ namespace com.ktgame.core.editor
 				Debug.LogWarning($"❌ Cannot find package folder at '{path}'.");
 			}
 		}
+		
+		private static void ApplyPublisherDefines(PublisherType value, NamedBuildTarget target)
+		{
+			DefineSymbolsEditor.RemoveDefineSymbol(DefineSymbolName.DS_PUBLISHER_ABI, target);
+			DefineSymbolsEditor.RemoveDefineSymbol(DefineSymbolName.DS_PUBLISHER_HIGAME, target);
+			DefineSymbolsEditor.RemoveDefineSymbol(DefineSymbolName.DS_PUBLISHER_INHOUSE, target);
+			switch (value)
+			{
+				case PublisherType.ABI:
+					DefineSymbolsEditor.AddDefineSymbol(DefineSymbolName.DS_PUBLISHER_ABI, target);
+					break;
+				case PublisherType.HIGAME:
+					DefineSymbolsEditor.AddDefineSymbol(DefineSymbolName.DS_PUBLISHER_HIGAME, target);
+					break;
+				case PublisherType.INHOUSE:
+					DefineSymbolsEditor.AddDefineSymbol(DefineSymbolName.DS_PUBLISHER_INHOUSE, target);
+					break;
+			}
+		}
 
 		[PropertySpace(SpaceBefore = 15)]
 		[BoxGroup("General Information", CenterLabel = true)]
@@ -88,22 +107,8 @@ namespace com.ktgame.core.editor
 			get => _setting.PublisherTypeAndroid;
 			set
 			{
-				DefineSymbolsEditor.RemoveDefineSymbol(DefineSymbolName.DS_PUBLISHER_ABI);
-				DefineSymbolsEditor.RemoveDefineSymbol(DefineSymbolName.DS_PUBLISHER_HIGAME);
-				DefineSymbolsEditor.RemoveDefineSymbol(DefineSymbolName.DS_PUBLISHER_INHOUSE);
 				_setting.PublisherTypeAndroid = value;
-				switch (value)
-				{
-					case PublisherType.ABI:
-						DefineSymbolsEditor.AddDefineSymbol(DefineSymbolName.DS_PUBLISHER_ABI);
-						break;
-					case PublisherType.HIGAME:
-						DefineSymbolsEditor.AddDefineSymbol(DefineSymbolName.DS_PUBLISHER_HIGAME);
-						break;
-					case PublisherType.INHOUSE:
-						DefineSymbolsEditor.AddDefineSymbol(DefineSymbolName.DS_PUBLISHER_INHOUSE);
-						break;
-				}
+				ApplyPublisherDefines(value, NamedBuildTarget.Android);
 			}
 		}
 
@@ -285,22 +290,8 @@ namespace com.ktgame.core.editor
 			get => _setting.PublisherTypeIos;
 			set
 			{
-				DefineSymbolsEditor.RemoveDefineSymbol(DefineSymbolName.DS_PUBLISHER_ABI);
-				DefineSymbolsEditor.RemoveDefineSymbol(DefineSymbolName.DS_PUBLISHER_HIGAME);
-				DefineSymbolsEditor.RemoveDefineSymbol(DefineSymbolName.DS_PUBLISHER_INHOUSE);
 				_setting.PublisherTypeIos = value;
-				switch (value)
-				{
-					case PublisherType.ABI:
-						DefineSymbolsEditor.AddDefineSymbol(DefineSymbolName.DS_PUBLISHER_ABI);
-						break;
-					case PublisherType.HIGAME:
-						DefineSymbolsEditor.AddDefineSymbol(DefineSymbolName.DS_PUBLISHER_HIGAME);
-						break;
-					case PublisherType.INHOUSE:
-						DefineSymbolsEditor.AddDefineSymbol(DefineSymbolName.DS_PUBLISHER_INHOUSE);
-						break;
-				}
+				ApplyPublisherDefines(value, NamedBuildTarget.iOS);
 			}
 		}
 

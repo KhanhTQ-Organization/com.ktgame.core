@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEngine;
 
 namespace com.ktgame.core.editor
@@ -10,77 +12,55 @@ namespace com.ktgame.core.editor
 	[InitializeOnLoad]
 	public class DefineSymbolsEditor
 	{
-		static DefineSymbolsEditor()
-		{
-			// if (Directory.Exists(Application.dataPath + "/MaxSdk"))
-			// 	AddDefineSymbol(DefineSymbolName.DS_MAX_INSTALLED);
-			// else
-			// 	RemoveDefineSymbol(DefineSymbolName.DS_MAX_INSTALLED);
-			//
-			// if (Directory.Exists(Application.dataPath + "/GoogleMobileAds"))
-			// {
-			// 	AddDefineSymbol(DefineSymbolName.DS_GMA_INSTALLED);
-			//
-			// 	if (GetGmaVersion() > new Version("9.6.0"))
-			// 		AddDefineSymbol(DefineSymbolName.DS_GMA_GREATER_9_6_0_INSTALLED);
-			// }
-			// else
-			// {
-			// 	RemoveDefineSymbol(DefineSymbolName.DS_GMA_INSTALLED);
-			// 	RemoveDefineSymbol(DefineSymbolName.DS_GMA_GREATER_9_6_0_INSTALLED);
-			// }
-			//
-			// if (PackageDependenceEditor.IsPackageInstalled("com.google.firebase"))
-			// 	AddDefineSymbol(DefineSymbolName.DS_FIREBASE_INSTALLED);
-			// else
-			// 	RemoveDefineSymbol(DefineSymbolName.DS_FIREBASE_INSTALLED);
-			//
-			// if (Directory.Exists(Application.dataPath + "/Appsflyer"))
-			// 	AddDefineSymbol(DefineSymbolName.DS_APPSFLYER_INSTALLED);
-			// else
-			// 	RemoveDefineSymbol(DefineSymbolName.DS_APPSFLYER_INSTALLED);
-			//
-			// if (Directory.Exists(Application.dataPath + "/Adverty5"))
-			// 	AddDefineSymbol(DefineSymbolName.DS_ADVERTY_INSTALLED);
-			// else
-			// 	RemoveDefineSymbol(DefineSymbolName.DS_ADVERTY_INSTALLED);
-			//
-			// if (Directory.Exists(Application.dataPath + "/Spine"))
-			// 	AddDefineSymbol(DefineSymbolName.DS_SPINE_INSTALLED);
-			// else
-			// 	RemoveDefineSymbol(DefineSymbolName.DS_SPINE_INSTALLED);
-		}
-
 		public static void AddDefineSymbol(string symbol)
 		{
-			var buildTargetGroup = EditorUserBuildSettings.selectedBuildTargetGroup;
-			var currentSymbols = PlayerSettings.GetScriptingDefineSymbolsForGroup(buildTargetGroup);
-
-			if (currentSymbols.Contains(symbol))
-				return;
-
-			var newSymbols = string.IsNullOrEmpty(currentSymbols) ? symbol : $"{currentSymbols};{symbol}";
-			PlayerSettings.SetScriptingDefineSymbolsForGroup(buildTargetGroup, newSymbols);
+			AddDefineSymbol(symbol, SelectedTarget);
 		}
 
 		public static void RemoveDefineSymbol(string symbol)
 		{
-			var buildTargetGroup = EditorUserBuildSettings.selectedBuildTargetGroup;
-			var currentSymbols = PlayerSettings.GetScriptingDefineSymbolsForGroup(buildTargetGroup);
-
-			if (!currentSymbols.Contains(symbol))
-				return;
-
-			var newSymbols = string.Join(";", currentSymbols.Split(';').Where(s => s != symbol));
-			PlayerSettings.SetScriptingDefineSymbolsForGroup(buildTargetGroup, newSymbols);
+			RemoveDefineSymbol(symbol, SelectedTarget);
 		}
 
 		public static bool HasDefineSymbol(string symbol)
 		{
-			var buildTargetGroup = EditorUserBuildSettings.selectedBuildTargetGroup;
-			var currentSymbols = PlayerSettings.GetScriptingDefineSymbolsForGroup(buildTargetGroup);
+			return HasDefineSymbol(symbol, SelectedTarget);
+		}
 
-			return currentSymbols.Split(';').Contains(symbol);
+		public static void AddDefineSymbol(string symbol, NamedBuildTarget target)
+		{
+			var symbols = GetSymbols(target);
+			if (symbols.Contains(symbol))
+				return;
+
+			symbols.Add(symbol);
+			PlayerSettings.SetScriptingDefineSymbols(target, string.Join(";", symbols));
+		}
+
+		public static void RemoveDefineSymbol(string symbol, NamedBuildTarget target)
+		{
+			var symbols = GetSymbols(target);
+			if (!symbols.Remove(symbol))
+				return;
+
+			PlayerSettings.SetScriptingDefineSymbols(target, string.Join(";", symbols));
+		}
+
+		public static bool HasDefineSymbol(string symbol, NamedBuildTarget target)
+		{
+			return GetSymbols(target).Contains(symbol);
+		}
+
+		private static NamedBuildTarget SelectedTarget =>
+			NamedBuildTarget.FromBuildTargetGroup(EditorUserBuildSettings.selectedBuildTargetGroup);
+		
+		private static List<string> GetSymbols(NamedBuildTarget target)
+		{
+			return PlayerSettings.GetScriptingDefineSymbols(target)
+				.Split(';')
+				.Select(s => s.Trim())
+				.Where(s => s.Length > 0)
+				.ToList();
 		}
 
 		private static Version GetGmaVersion()

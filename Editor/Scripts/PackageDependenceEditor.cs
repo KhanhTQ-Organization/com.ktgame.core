@@ -30,21 +30,63 @@ namespace com.ktgame.core.editor
 			if (!File.Exists(localPackagePath))
 			{
 				string urlFirebase = string.Format(VariableEditor.FirebaseDownloadUrl, packageName, packageVersion);
-				yield return EditorCoroutine.Start(DownloadPackageCoroutine(urlFirebase, localPackagePath));
+				var downloaded = false;
+				
+				var download = DownloadPackageCoroutine(urlFirebase, localPackagePath, success => downloaded = success);
+				while (download.MoveNext())
+				{
+					yield return download.Current;
+				}
+
+				if (!downloaded)
+				{
+					Debug.LogError($"[PackageDependence] Download failed. {packageName} was not added to manifest.json.");
+					yield break;
+				}
 			}
 
 			AddPackageToManifest(packageName,
 				Path.Combine(VariableEditor.GoogleDependenciesFolder, $"{packageName}-{packageVersion}.tgz"));
 		}
 
-		private static IEnumerator DownloadPackageCoroutine(string url, string outputPath)
+		private static IEnumerator DownloadPackageCoroutine(string url, string outputPath, Action<bool> onComplete)
 		{
 			Debug.Log($"Downloading package from {url}...");
+			
+			var tempPath = outputPath + ".download";
+			if (File.Exists(tempPath))
+			{
+				File.Delete(tempPath);
+			}
 
 			using (WebClient client = new WebClient())
 			{
-				yield return client.DownloadFileTaskAsync(new Uri(url), outputPath);
+				var task = client.DownloadFileTaskAsync(new Uri(url), tempPath);
+				while (!task.IsCompleted)
+				{
+					yield return null;
+				}
+
+				if (task.IsFaulted || task.IsCanceled)
+				{
+					Debug.LogError($"[PackageDependence] Download failed: {url}\n{task.Exception?.GetBaseException().Message}");
+					if (File.Exists(tempPath))
+					{
+						File.Delete(tempPath);
+					}
+
+					onComplete?.Invoke(false);
+					yield break;
+				}
 			}
+
+			if (File.Exists(outputPath))
+			{
+				File.Delete(outputPath);
+			}
+
+			File.Move(tempPath, outputPath);
+			onComplete?.Invoke(true);
 		}
 
 		private static IEnumerator WaitForPackageRefreshCoroutine()

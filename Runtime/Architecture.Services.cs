@@ -48,14 +48,44 @@ namespace com.ktgame.core
 
 		protected async UniTask ServiceInstaller(IArchitecture architecture)
 		{
+			var createdServices = new List<IService>();
 			foreach (var service in ServiceTypes)
 			{
 				var attribute = service.GetCustomAttribute<ServiceAttribute>();
 				if (attribute != null)
 				{
-					var serviceType = attribute.ServiceType;
-					var serviceInstance = CreateService(service);
-					RegisterService(serviceType, serviceInstance);
+					IService serviceInstance = null;
+					var registered = false;
+					try
+					{
+						serviceInstance = CreateService(service);
+						registered = RegisterService(attribute.ServiceType, serviceInstance, false);
+						if (registered)
+						{
+							createdServices.Add(serviceInstance);
+						}
+					}
+					catch (Exception e)
+					{
+						Debug.LogError($"[Architecture] Failed to create service {service.Name}: {e}");
+					}
+
+					if (!registered)
+					{
+						DestroyRejectedService(serviceInstance);
+					}
+				}
+			}
+
+			foreach (var serviceInstance in createdServices)
+			{
+				try
+				{
+					InjectorInternal.Resolve(serviceInstance);
+				}
+				catch (Exception e)
+				{
+					Debug.LogError($"[Architecture] Inject error in {serviceInstance.GetType().Name}: {e}");
 				}
 			}
 
@@ -65,8 +95,15 @@ namespace com.ktgame.core
 				if (service.Value is IInitializable initializable)
 				{
 					Log.Info($"Initialize Service {index}: [{service.Key.Name}] => [{service.Value.GetType().Name}]");
-					await initializable.OnInitialize(architecture);
-					initializable.Initialized = true;
+					try
+					{
+						await initializable.OnInitialize(architecture);
+						initializable.Initialized = true;
+					}
+					catch (Exception e)
+					{
+						Debug.LogError($"[Architecture] Initialize error in {service.Value.GetType().Name}: {e}");
+					}
 					index++;
 				}
 			}
@@ -84,7 +121,14 @@ namespace com.ktgame.core
 					{
 						var inst = UnityEngine.Object.Instantiate(prefab, transform);
 						inst.name = service.Name;
-						return inst.GetComponent(service) as IService;
+						var component = inst.GetComponent(service) as IService;
+						if (component == null)
+						{
+							Debug.LogError($"[Architecture] Prefab '{attribute.PrefabPath}' has no {service.Name} component. Service skipped.");
+							UnityEngine.Object.Destroy(inst);
+						}
+
+						return component;
 					}
 					else
 					{
@@ -124,12 +168,29 @@ namespace com.ktgame.core
 		public void RegisterService<TService>(TService service) where TService : IService
 		{
 			var type = typeof(TService);
-			if (service is IInitializable initializable)
+			
+			if (!RegisterService(type, service))
 			{
-				initializable.OnInitialize(_architecture);
+				return;
 			}
 
-			RegisterService(type, service);
+			if (service is IInitializable initializable)
+			{
+				InitializeRegisteredServiceAsync(initializable).Forget();
+			}
+		}
+
+		private async UniTaskVoid InitializeRegisteredServiceAsync(IInitializable initializable)
+		{
+			try
+			{
+				await initializable.OnInitialize(_architecture);
+				initializable.Initialized = true;
+			}
+			catch (Exception e)
+			{
+				Debug.LogError($"[Architecture] Initialize error in {initializable.GetType().Name}: {e}");
+			}
 		}
 
 		public void UnregisterService<TService>() where TService : IService
@@ -206,8 +267,32 @@ namespace com.ktgame.core
 			// }
 		}
 
-		private void RegisterService<TService>(Type type, TService service) where TService : IService
+		private bool RegisterService<TService>(Type type, TService service, bool resolveNow = true) where TService : IService
 		{
+			if (service == null)
+			{
+				Debug.LogError($"[Architecture] Service '{type?.Name}' is null and was not registered.");
+				return false;
+			}
+
+			if (type == null || !typeof(IService).IsAssignableFrom(type))
+			{
+				Debug.LogError($"[{GetType().Name}] Object '{type?.Name}' is not a valid service");
+				return false;
+			}
+
+			if (!type.IsInstanceOfType(service))
+			{
+				Debug.LogError($"[Architecture] {service.GetType().Name} does not implement {type.Name} declared in [Service]. Service skipped.");
+				return false;
+			}
+
+			if (_allServices.TryGetValue(type, out var existingService))
+			{
+				Debug.LogError($"[Architecture] Duplicate service '{type.Name}': {existingService.GetType().Name} is already registered, {service.GetType().Name} skipped.");
+				return false;
+			}
+
 			if (service is IInitializable initializable)
 			{
 				_initializables.Add(initializable);
@@ -265,15 +350,24 @@ namespace com.ktgame.core
 			}
 #endif
 
-			if (typeof(IService).IsAssignableFrom(type))
+			_allServices.Add(type, service);
+			if (resolveNow)
 			{
-				_allServices.Add(type, service);
 				InjectorInternal.Resolve(service);
-				InjectorInternal.AddSingleton(service, type);
 			}
-			else
+			InjectorInternal.AddSingleton(service, type);
+			return true;
+		}
+
+		private static void DestroyRejectedService(IService service)
+		{
+			if (service is Component component && component != null)
 			{
-				Debug.LogError($"[{GetType().Name}] Object '{type.Name}' is not a valid service");
+				UnityEngine.Object.Destroy(component.gameObject);
+			}
+			else if (service is ScriptableObject scriptableObject && scriptableObject != null)
+			{
+				UnityEngine.Object.Destroy(scriptableObject);
 			}
 		}
 	}

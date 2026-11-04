@@ -114,7 +114,7 @@ namespace com.ktgame.core
 			_lowMemories.Clear();
 #endif
 			_allServices.Clear();
-			InjectorInternal.Dispose();
+			InjectorInternal?.Dispose();
 
 #if UNITY_ANDROID || UNITY_IOS
 			Application.lowMemory -= OnLowMemory;

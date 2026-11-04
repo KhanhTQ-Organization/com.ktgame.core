@@ -106,8 +106,14 @@ namespace com.ktgame.core.di
 		{
 			if (ValidateContracts(concrete, contract))
 			{
+				if (ResolversByContract.ContainsKey(contract))
+				{
+					UnityEngine.Debug.LogWarning($"[Injector] Contract '{contract.GetFullName()}' is already bound. New binding for '{concrete.GetFullName()}' was ignored.");
+					return;
+				}
+
 				_disposables.Add(resolver);
-				ResolversByContract.GetOrAdd(contract, _ => resolver);
+				ResolversByContract.Add(contract, resolver);
 			}
 		}
 

@@ -46,10 +46,20 @@ namespace com.ktgame.core
 
 		private static async void Initialize(T architecture)
 		{
-			await architecture.OnPreInitialize();
-			await architecture.OnInitialize();
-			await architecture.OnPostInitialize();
-			architecture._initialized = true;
+			try
+			{
+				await architecture.OnPreInitialize();
+				await architecture.OnInitialize();
+				await architecture.OnPostInitialize();
+			}
+			catch (Exception e)
+			{
+				Debug.LogError($"[Architecture] Initialization failed in {typeof(T).Name}: {e}");
+			}
+			finally
+			{
+				architecture._initialized = true;
+			}
 		}
 
 		protected virtual UniTask OnPreInitialize()

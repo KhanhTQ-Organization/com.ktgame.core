@@ -21,6 +21,8 @@ namespace com.ktgame.core.di
 
 		public void Return(T[] array)
 		{
+			System.Array.Clear(array, 0, array.Length);
+
 			if (_buckets.TryGetValue(array.Length, out var bucket))
 			{
 				bucket.Enqueue(array);

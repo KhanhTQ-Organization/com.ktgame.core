@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace com.unimob.core.di
+namespace com.ktgame.core.di
 {
 	internal static class ListExtensions
 	{

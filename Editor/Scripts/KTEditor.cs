@@ -37,7 +37,7 @@ namespace com.ktgame.core.editor
 			if (PlayerSettings.Android.useCustomKeystore)
 			{
 				PlayerSettings.Android.keyaliasPass = Setting.KeyaliasPasswordAndroid;
-				PlayerSettings.Android.keystorePass = Setting.KeyaliasPasswordAndroid;
+				PlayerSettings.Android.keystorePass = Setting.KeystorePasswordAndroid;
 			}
 			
 			string fileNameExtension = isAab ? "aab" : "apk";
