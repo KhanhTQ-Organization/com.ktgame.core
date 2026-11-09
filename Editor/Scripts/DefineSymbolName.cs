@@ -8,7 +8,7 @@ namespace com.ktgame.core.editor
 		
 		public const string DS_GMA_GREATER_9_6_0_INSTALLED = "DS_GMA_GREATER_9_6_0";
 
-		public const string DS_MAX_INSTALLED = "MAXAPPLOVIN";
+		public const string DS_MAX_INSTALLED = "MAX_APPLOVIN";
 
 		public const string DS_IRONSOURCE_INSTALLED = "IRONSOURCE";
 		
