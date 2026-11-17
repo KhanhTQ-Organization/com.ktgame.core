@@ -1,3 +1,10 @@
+## [1.0.18](https://github.com/KhanhTQ-Organization/com.ktgame.core/compare/v1.0.17...v1.0.18) (2026-11-17)
+
+
+### Bug Fixes
+
+* log time init manager ([47a5c0a](https://github.com/KhanhTQ-Organization/com.ktgame.core/commit/47a5c0a2f0fbe4da24d8312ec6219a600e5c73e0))
+
 ## [1.0.17](https://github.com/KhanhTQ-Organization/com.ktgame.core/compare/v1.0.16...v1.0.17) (2026-11-17)
 
 
