@@ -1,3 +1,10 @@
+## [1.0.17](https://github.com/KhanhTQ-Organization/com.ktgame.core/compare/v1.0.16...v1.0.17) (2026-11-17)
+
+
+### Bug Fixes
+
+* update đo ms services ([4486775](https://github.com/KhanhTQ-Organization/com.ktgame.core/commit/4486775579d96ee241ae72b36d0dc18b58f69325))
+
 ## [1.0.16](https://github.com/KhanhTQ-Organization/com.ktgame.core/compare/v1.0.15...v1.0.16) (2026-11-04)
 
 
