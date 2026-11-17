@@ -28,15 +28,43 @@ namespace com.ktgame.core
 
 		protected readonly List<Type> ServiceTypes = new List<Type>();
 
+		/// <summary>Startup timings of this architecture (see Ktgame > Dependency Container Debugger > Startup).</summary>
+		public ArchitectureInitReport InitReport { get; internal set; }
+
+		private static Type[] _candidateTypes;
+
+		// All types of Assembly-CSharp and com.ktgame.* assemblies, scanned once and shared with ArchitectureInstaller.
+		internal static Type[] CandidateTypes => _candidateTypes ??= ScanCandidateTypes();
+
+		private static Type[] ScanCandidateTypes()
+		{
+			var watch = System.Diagnostics.Stopwatch.StartNew();
+			var prefixes = new[] { "Assembly-CSharp", "com.ktgame" };
+			var types = AppDomain.CurrentDomain.GetAssemblies()
+				.Where(a => prefixes.Any(p => a.FullName.StartsWith(p)))
+				.SelectMany(GetLoadableTypes)
+				.ToArray();
+			ArchitectureInitReport.ScanTypesMs = watch.Elapsed.TotalMilliseconds;
+			return types;
+		}
+
+		private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
+		{
+			try
+			{
+				return assembly.GetTypes();
+			}
+			catch (ReflectionTypeLoadException e)
+			{
+				return e.Types.Where(t => t != null);
+			}
+		}
+
 		protected void GetAllServices(IArchitecture architecture)
 		{
+			var watch = System.Diagnostics.Stopwatch.StartNew();
 			_architecture = architecture;
-			var prefixes = new[] { "Assembly-CSharp", "com.ktgame" };
-			var assemblies = AppDomain.CurrentDomain.GetAssemblies()
-				.Where(a => prefixes.Any(p => a.FullName.StartsWith(p)));
-				
-			var services = assemblies
-				.SelectMany(assembly => assembly.GetTypes())
+			var services = CandidateTypes
 				.Where(t => t.IsClass && typeof(IService).IsAssignableFrom(t))
 				.ToArray();
 
@@ -44,10 +72,16 @@ namespace com.ktgame.core
 			{
 				ServiceTypes.Add(service);
 			}
+
+			if (InitReport != null)
+			{
+				InitReport.ScanServicesMs = watch.Elapsed.TotalMilliseconds;
+			}
 		}
 
 		protected async UniTask ServiceInstaller(IArchitecture architecture)
 		{
+			var phaseWatch = System.Diagnostics.Stopwatch.StartNew();
 			var createdServices = new List<IService>();
 			foreach (var service in ServiceTypes)
 			{
@@ -77,6 +111,12 @@ namespace com.ktgame.core
 				}
 			}
 
+			if (InitReport != null)
+			{
+				InitReport.CreateMs = phaseWatch.Elapsed.TotalMilliseconds;
+			}
+
+			phaseWatch.Restart();
 			foreach (var serviceInstance in createdServices)
 			{
 				try
@@ -89,23 +129,102 @@ namespace com.ktgame.core
 				}
 			}
 
-			var index = 0;
+			if (InitReport != null)
+			{
+				InitReport.InjectMs = phaseWatch.Elapsed.TotalMilliseconds;
+			}
+
+			var settings = ArchitectureSettings.Instance;
+			var foreground = new List<KeyValuePair<Type, IService>>();
+			var background = new List<KeyValuePair<Type, IService>>();
 			foreach (var service in _allServices.OrderBy(s => s.Value.Priority))
 			{
-				if (service.Value is IInitializable initializable)
+				if (!(service.Value is IInitializable))
 				{
-					Log.Info($"Initialize Service {index}: [{service.Key.Name}] => [{service.Value.GetType().Name}]");
-					try
-					{
-						await initializable.OnInitialize(architecture);
-						initializable.Initialized = true;
-					}
-					catch (Exception e)
-					{
-						Debug.LogError($"[Architecture] Initialize error in {service.Value.GetType().Name}: {e}");
-					}
-					index++;
+					continue;
 				}
+
+				if (settings != null && settings.IsBackground(service.Key, service.Value.GetType()))
+				{
+					background.Add(service);
+					_pendingBackgroundServices.Add(service.Value);
+				}
+				else
+				{
+					foreground.Add(service);
+				}
+			}
+
+			if (background.Count > 0)
+			{
+				if (InitReport != null)
+				{
+					InitReport.HasBackground = true;
+				}
+
+				InitializeBackgroundServicesAsync(background, architecture).Forget();
+			}
+			else
+			{
+				_backgroundServicesReady = true;
+			}
+
+			for (var i = 0; i < foreground.Count; i++)
+			{
+				await InitializeServiceAsync(foreground[i], architecture, i, false);
+			}
+		}
+
+		private async UniTaskVoid InitializeBackgroundServicesAsync(List<KeyValuePair<Type, IService>> services, IArchitecture architecture)
+		{
+			try
+			{
+				for (var i = 0; i < services.Count; i++)
+				{
+					await InitializeServiceAsync(services[i], architecture, i, true);
+					_pendingBackgroundServices.Remove(services[i].Value);
+				}
+			}
+			finally
+			{
+				_pendingBackgroundServices.Clear();
+				_backgroundServicesReady = true;
+				if (InitReport != null)
+				{
+					InitReport.BackgroundMs = InitReport.ElapsedMs;
+					InitReport.BackgroundFrames = Time.frameCount - InitReport.StartFrame;
+					InitReport.BackgroundDone = true;
+				}
+			}
+		}
+
+		private async UniTask InitializeServiceAsync(KeyValuePair<Type, IService> service, IArchitecture architecture, int index, bool background)
+		{
+			var initializable = (IInitializable)service.Value;
+			var group = background ? "Background service" : "Service";
+			Log.Info($"Initialize {group} {index}: [{service.Key.Name}] => [{service.Value.GetType().Name}]");
+			var record = InitReport?.BeginService(service.Value.GetType().Name, service.Key.Name, service.Value.Priority, background, index);
+			var failed = false;
+			try
+			{
+				var task = initializable.OnInitialize(architecture);
+				if (record != null)
+				{
+					ArchitectureInitReport.MarkSynchronousDone(record);
+				}
+
+				await task;
+				initializable.Initialized = true;
+			}
+			catch (Exception e)
+			{
+				failed = true;
+				Debug.LogError($"[Architecture] Initialize error in {service.Value.GetType().Name}: {e}");
+			}
+
+			if (record != null)
+			{
+				ArchitectureInitReport.EndService(record, failed);
 			}
 		}
 

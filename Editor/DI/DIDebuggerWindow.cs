@@ -15,18 +15,44 @@ namespace com.ktgame.core.di.editor
 		private const string ResolverIcon = "d_NetworkAnimator Icon";
 		private const string InstanceIcon = "d_Prefab Icon";
 
+		private const float ToolbarHeight = 21f;
+		private const double FrameBudgetMs = 16.7d;
+		private const double HitchMs = 50d;
+
+		private enum Tab
+		{
+			Dependencies,
+			Startup
+		}
+
+		private enum StartupSort
+		{
+			Order,
+			Sync,
+			Total
+		}
+
+		private static readonly string[] TabNames = { "Dependencies", "Startup" };
+		private static readonly string[] SortNames = { "Order", "Sync (blocks frame)", "Total" };
+
 		[NonSerialized] private bool _isInitialized;
 		[SerializeField] private TreeViewState _treeViewState;
 		[SerializeField] private MultiColumnHeaderState _multiColumnHeaderState;
+		[SerializeField] private Tab _tab = Tab.Dependencies;
+		[SerializeField] private StartupSort _startupSort = StartupSort.Order;
 
 		private int _id = -1;
 		private SearchField _searchField;
 		private Vector2 _bindingStackTraceScrollPosition;
+		private Vector2 _startupScrollPosition;
+		private ArchitectureInitReport _startupReport;
+		private List<ServiceInitRecord> _startupRows = new List<ServiceInitRecord>();
+		private bool _startupHasBackground;
 		private IArchitecture _architecture;
 
 		private MultiColumnTreeView TreeView { get; set; }
-		private Rect SearchBarRect => new Rect(20f, 10f, position.width - 40f, 20f);
-		private Rect MultiColumnTreeViewRect => new Rect(20, 30, position.width - 40, position.height - 200);
+		private Rect SearchBarRect => new Rect(20f, ToolbarHeight + 10f, position.width - 40f, 20f);
+		private Rect MultiColumnTreeViewRect => new Rect(20, ToolbarHeight + 30f, position.width - 40, position.height - 200 - ToolbarHeight);
 
 		private void OnEnable()
 		{
@@ -56,15 +82,27 @@ namespace com.ktgame.core.di.editor
 
 		private async void OnPlayModeStateChanged(PlayModeStateChange playModeStateChange)
 		{
+			if (playModeStateChange == PlayModeStateChange.ExitingPlayMode || playModeStateChange == PlayModeStateChange.EnteredEditMode)
+			{
+				_architecture = null;
+				_isInitialized = false;
+				Repaint();
+				return;
+			}
+
 			await Task.Yield();
 			Refresh();
+		}
+
+		private static bool IsAlive(IArchitecture architecture)
+		{
+			return architecture is UnityEngine.Object unityObject ? unityObject != null : architecture != null;
 		}
 
 		private void InitIfNeeded()
 		{
 			if (!_isInitialized)
 			{
-				// Check if it already exists (deserialized from window layout file or scriptable object)
 				_treeViewState ??= new TreeViewState();
 
 				bool firstInit = _multiColumnHeaderState == null;
@@ -132,7 +170,7 @@ namespace com.ktgame.core.di.editor
 			foreach (var pair in BuildMatrix(injector))
 			{
 				var resolverTreeElement = new MyTreeElement(
-					string.Join(", ", pair.Item2.GetName()), // In this case Name is not used for rendering, but for searching
+					string.Join(", ", pair.Item2.GetName()),
 					containerTreeElement.Depth + 1,
 					++_id,
 					ResolverIcon,
@@ -167,7 +205,7 @@ namespace com.ktgame.core.di.editor
 		private IList<MyTreeElement> GetData()
 		{
 			var root = new MyTreeElement("Root", -1, ++_id, ContainerIcon, () => string.Empty, Array.Empty<string>(), string.Empty, null, string.Empty);
-			if (_architecture != null)
+			if (IsAlive(_architecture))
 			{
 				BuildDataRecursively(root, (Injector)_architecture.Injector);
 			}
@@ -179,15 +217,35 @@ namespace com.ktgame.core.di.editor
 
 		private void OnGUI()
 		{
-			if (!Application.isPlaying)
+			_tab = (Tab)GUILayout.Toolbar((int)_tab, TabNames, EditorStyles.toolbarButton, GUILayout.Height(ToolbarHeight));
+
+			if (_tab == Tab.Startup)
 			{
+				PresentStartup();
+				if (Application.isPlaying)
+				{
+					Repaint();
+				}
+
 				return;
 			}
 
-			if (_architecture == null)
+			if (!Application.isPlaying)
+			{
+				EditorGUILayout.HelpBox("Enter Play Mode to inspect the dependency container.", MessageType.Info);
+				return;
+			}
+			
+			if (Event.current.type == EventType.Layout && !IsAlive(_architecture))
 			{
 				_isInitialized = false;
 				_architecture = FindObjectsOfType<MonoBehaviour>().OfType<IArchitecture>().FirstOrDefault();
+			}
+
+			if (!IsAlive(_architecture))
+			{
+				EditorGUILayout.HelpBox("Waiting for the architecture...", MessageType.Info);
+				Repaint();
 				return;
 			}
 
@@ -201,7 +259,12 @@ namespace com.ktgame.core.di.editor
 		private void Refresh(PlayModeStateChange _ = default)
 		{
 			_isInitialized = false;
-			InitIfNeeded();
+			if (Application.isPlaying && IsAlive(_architecture))
+			{
+				InitIfNeeded();
+			}
+
+			Repaint();
 		}
 
 		private void SearchBar(Rect rect)
@@ -303,5 +366,174 @@ namespace com.ktgame.core.di.editor
 			EditorGUIUtility.AddCursorRect(position, MouseCursor.Link);
 			return GUI.Button(position, label, Styles.Hyperlink);
 		}
+
+		#region Startup
+
+		private void PresentStartup()
+		{
+			if (Event.current.type == EventType.Layout)
+			{
+				_startupReport = ArchitectureInitReport.Last;
+				_startupRows = _startupReport != null ? SortRecords(_startupReport.Services).ToList() : new List<ServiceInitRecord>();
+				_startupHasBackground = _startupReport != null && _startupReport.HasBackground;
+			}
+
+			var report = _startupReport;
+			if (report == null)
+			{
+				EditorGUILayout.HelpBox("No startup recorded yet. Enter Play Mode: the startup timings of the services appear here " +
+				                        "and stay visible after Play Mode stops.", MessageType.Info);
+				return;
+			}
+
+			_startupScrollPosition = EditorGUILayout.BeginScrollView(_startupScrollPosition);
+			GUILayout.Space(6);
+
+			var state = report.Finished
+				? Application.isPlaying ? "finished" : "finished (last Play Mode run)"
+				: Application.isPlaying ? "running..." : "stopped before finishing";
+			EditorGUILayout.LabelField($"{report.ArchitectureName} startup — {state}", EditorStyles.boldLabel);
+
+			PresentSummaryRow("Ready (Architecture.IsInitialized)",
+				report.InitializedDone ? $"{report.InitializedMs:F1} ms over {report.InitializedFrames} frame(s)" : $"running {report.ElapsedMs:F0} ms",
+				report.InitializedDone ? (Color?)null : Color.yellow);
+
+			if (_startupHasBackground)
+			{
+				PresentSummaryRow("Background services ready",
+					report.BackgroundDone ? $"{report.BackgroundMs:F1} ms over {report.BackgroundFrames} frame(s)" : $"running {report.ElapsedMs:F0} ms",
+					report.BackgroundDone ? (Color?)null : Color.yellow);
+			}
+
+			PresentSummaryRow("Longest frame while starting",
+				report.LongestFrameMs > 0 ? $"{report.LongestFrameMs:F1} ms (frame {report.LongestFrameNumber})" : "-",
+				GetCostColor(report.LongestFrameMs));
+
+			GUILayout.Space(4);
+			EditorGUILayout.LabelField("Before services (block the first frame)", EditorStyles.miniBoldLabel);
+			PresentSummaryRow("Scan types (reflection)", $"{ArchitectureInitReport.ScanTypesMs:F1} ms", GetCostColor(ArchitectureInitReport.ScanTypesMs));
+			PresentSummaryRow("Find service types", $"{report.ScanServicesMs:F1} ms", GetCostColor(report.ScanServicesMs));
+			PresentSummaryRow("Create services", $"{report.CreateMs:F1} ms", GetCostColor(report.CreateMs));
+			PresentSummaryRow("Inject services", $"{report.InjectMs:F1} ms", GetCostColor(report.InjectMs));
+			PresentSummaryRow("OnPostInitialize", $"{report.PostInitializeMs:F1} ms", GetCostColor(report.PostInitializeMs));
+
+			GUILayout.Space(8);
+			using (new EditorGUILayout.HorizontalScope())
+			{
+				EditorGUILayout.LabelField("Services", EditorStyles.miniBoldLabel, GUILayout.Width(60));
+				GUILayout.FlexibleSpace();
+				EditorGUILayout.LabelField("Sort", GUILayout.Width(30));
+				_startupSort = (StartupSort)EditorGUILayout.Popup((int)_startupSort, SortNames, GUILayout.Width(150));
+			}
+
+			PresentServiceHeader();
+			foreach (var record in _startupRows)
+			{
+				PresentServiceRow(record);
+			}
+
+			GUILayout.Space(8);
+			EditorGUILayout.HelpBox(
+				"Sync = work done before OnInitialize returned: it blocks the frame (yellow > 16.7 ms, red > 50 ms).\n" +
+				"Total = until OnInitialize finished, waiting (network, SDK) included. Waiting does not freeze the game when Frames is high.\n" +
+				"A long Total with few Frames means some frames were very long while that service was running.",
+				MessageType.None);
+
+			EditorGUILayout.EndScrollView();
+		}
+
+		private IEnumerable<ServiceInitRecord> SortRecords(IReadOnlyList<ServiceInitRecord> records)
+		{
+			switch (_startupSort)
+			{
+				case StartupSort.Sync:
+					return records.OrderByDescending(r => r.SyncMs);
+				case StartupSort.Total:
+					return records.OrderByDescending(r => r.ElapsedMs);
+				default:
+					return records.OrderBy(r => r.Background).ThenBy(r => r.Order);
+			}
+		}
+
+		private static void PresentServiceHeader()
+		{
+			using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
+			{
+				GUILayout.Label("Service", EditorStyles.miniBoldLabel, GUILayout.MinWidth(170));
+				GUILayout.Label("Group", EditorStyles.miniBoldLabel, GUILayout.Width(80));
+				GUILayout.Label("Priority", EditorStyles.miniBoldLabel, GUILayout.Width(50));
+				GUILayout.Label("Start", EditorStyles.miniBoldLabel, GUILayout.Width(70));
+				GUILayout.Label("Sync", EditorStyles.miniBoldLabel, GUILayout.Width(70));
+				GUILayout.Label("Total", EditorStyles.miniBoldLabel, GUILayout.Width(80));
+				GUILayout.Label("Frames", EditorStyles.miniBoldLabel, GUILayout.Width(50));
+			}
+		}
+
+		private static void PresentServiceRow(ServiceInitRecord record)
+		{
+			using (new EditorGUILayout.HorizontalScope())
+			{
+				var name = new GUIContent(record.ServiceName, record.ContractName);
+				var nameStyle = record.Failed ? ColoredLabel(Color.red) : EditorStyles.label;
+				GUILayout.Label(record.Failed ? new GUIContent(record.ServiceName + " (failed)", record.ContractName) : name, nameStyle, GUILayout.MinWidth(170));
+				GUILayout.Label(record.Background ? "Background" : "Main", GUILayout.Width(80));
+				GUILayout.Label(record.Priority.ToString(), GUILayout.Width(50));
+				GUILayout.Label($"{record.StartMs:F0} ms", GUILayout.Width(70));
+
+				var syncColor = GetCostColor(record.SyncMs);
+				GUILayout.Label($"{record.SyncMs:F1} ms", syncColor.HasValue ? ColoredLabel(syncColor.Value) : EditorStyles.label, GUILayout.Width(70));
+
+				if (record.Completed)
+				{
+					GUILayout.Label($"{record.TotalMs:F1} ms", GUILayout.Width(80));
+					GUILayout.Label(record.Frames.ToString(), GUILayout.Width(50));
+				}
+				else
+				{
+					GUILayout.Label($"{record.ElapsedMs:F0} ms...", ColoredLabel(Color.yellow), GUILayout.Width(80));
+					GUILayout.Label("-", GUILayout.Width(50));
+				}
+			}
+		}
+
+		private static void PresentSummaryRow(string label, string value, Color? color)
+		{
+			using (new EditorGUILayout.HorizontalScope())
+			{
+				EditorGUILayout.LabelField(label, GUILayout.Width(230));
+				EditorGUILayout.LabelField(value, color.HasValue ? ColoredLabel(color.Value) : EditorStyles.label);
+			}
+		}
+
+		private static Color? GetCostColor(double ms)
+		{
+			if (ms > HitchMs)
+			{
+				return new Color(1f, 0.35f, 0.3f);
+			}
+
+			if (ms > FrameBudgetMs)
+			{
+				return new Color(1f, 0.8f, 0.2f);
+			}
+
+			return null;
+		}
+
+		private static readonly Dictionary<Color, GUIStyle> ColoredStyles = new Dictionary<Color, GUIStyle>();
+
+		private static GUIStyle ColoredLabel(Color color)
+		{
+			if (!ColoredStyles.TryGetValue(color, out var style))
+			{
+				style = new GUIStyle(EditorStyles.label);
+				style.normal.textColor = color;
+				ColoredStyles[color] = style;
+			}
+
+			return style;
+		}
+
+		#endregion
 	}
 }

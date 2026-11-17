@@ -46,11 +46,15 @@ namespace com.ktgame.core
 
 		private static async void Initialize(T architecture)
 		{
+			var report = ArchitectureInitReport.Begin(typeof(T).Name);
+			architecture.InitReport = report;
 			try
 			{
 				await architecture.OnPreInitialize();
 				await architecture.OnInitialize();
+				var postWatch = System.Diagnostics.Stopwatch.StartNew();
 				await architecture.OnPostInitialize();
+				report.PostInitializeMs = postWatch.Elapsed.TotalMilliseconds;
 			}
 			catch (Exception e)
 			{
@@ -59,6 +63,9 @@ namespace com.ktgame.core
 			finally
 			{
 				architecture._initialized = true;
+				report.InitializedMs = report.ElapsedMs;
+				report.InitializedFrames = Time.frameCount - report.StartFrame;
+				report.InitializedDone = true;
 			}
 		}
 

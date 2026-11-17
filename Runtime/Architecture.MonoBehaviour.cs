@@ -18,6 +18,11 @@ namespace com.ktgame.core
 
 		private void Update()
 		{
+			if (InitReport != null && Time.frameCount > InitReport.StartFrame)
+			{
+				InitReport.TrackFrame(Time.unscaledDeltaTime);
+			}
+
 			if (_architecture == null)
 			{
 				return;
@@ -31,6 +36,11 @@ namespace com.ktgame.core
 
 					for (int i = _updatables.Count - 1; i >= 0; i--)
 					{
+						if (IsPendingBackground(_updatables[i]))
+						{
+							continue;
+						}
+
 						try { _updatables[i].OnUpdate(); }
 						catch (System.Exception e) { Debug.LogError($"[Architecture] Update error in {_updatables[i].GetType().Name}: {e}"); }
 					}
@@ -53,6 +63,11 @@ namespace com.ktgame.core
 
 					for (int i = _fixedUpdatables.Count - 1; i >= 0; i--)
 					{
+						if (IsPendingBackground(_fixedUpdatables[i]))
+						{
+							continue;
+						}
+
 						try { _fixedUpdatables[i].OnFixedUpdate(); }
 						catch (System.Exception e) { Debug.LogError($"[Architecture] FixedUpdate error in {_fixedUpdatables[i].GetType().Name}: {e}"); }
 					}
@@ -75,6 +90,11 @@ namespace com.ktgame.core
 
 					for (int i = _lateUpdatables.Count - 1; i >= 0; i--)
 					{
+						if (IsPendingBackground(_lateUpdatables[i]))
+						{
+							continue;
+						}
+
 						try { _lateUpdatables[i].OnLateUpdate(); }
 						catch (System.Exception e) { Debug.LogError($"[Architecture] LateUpdate error in {_lateUpdatables[i].GetType().Name}: {e}"); }
 					}
