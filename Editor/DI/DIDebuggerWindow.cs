@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using com.ktgame.core.manager;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
@@ -25,20 +26,29 @@ namespace com.ktgame.core.di.editor
 			Startup
 		}
 
+		private enum StartupCategory
+		{
+			Services,
+			Managers
+		}
+
 		private enum StartupSort
 		{
 			Order,
 			Sync,
-			Total
+			Total,
+			LongestFrame
 		}
 
 		private static readonly string[] TabNames = { "Dependencies", "Startup" };
-		private static readonly string[] SortNames = { "Order", "Sync (blocks frame)", "Total" };
+		private static readonly string[] CategoryNames = { "Services (Global)", "Managers (Scene)" };
+		private static readonly string[] SortNames = { "Order", "Sync (blocks frame)", "Total", "Longest frame" };
 
 		[NonSerialized] private bool _isInitialized;
 		[SerializeField] private TreeViewState _treeViewState;
 		[SerializeField] private MultiColumnHeaderState _multiColumnHeaderState;
 		[SerializeField] private Tab _tab = Tab.Dependencies;
+		[SerializeField] private StartupCategory _startupCategory = StartupCategory.Services;
 		[SerializeField] private StartupSort _startupSort = StartupSort.Order;
 
 		private int _id = -1;
@@ -48,7 +58,11 @@ namespace com.ktgame.core.di.editor
 		private ArchitectureInitReport _startupReport;
 		private List<ServiceInitRecord> _startupRows = new List<ServiceInitRecord>();
 		private bool _startupHasBackground;
+		private int _selectedSceneIndex;
+		private SceneManagersInitReport _currentManagerReport;
+		private List<ManagerInitRecord> _managerRows = new List<ManagerInitRecord>();
 		private IArchitecture _architecture;
+		private bool _startupLive;
 
 		private MultiColumnTreeView TreeView { get; set; }
 		private Rect SearchBarRect => new Rect(20f, ToolbarHeight + 10f, position.width - 40f, 20f);
@@ -59,6 +73,7 @@ namespace com.ktgame.core.di.editor
 			SceneManager.sceneLoaded += OnSceneLoaded;
 			SceneManager.sceneUnloaded += OnSceneUnloaded;
 			EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+			EditorApplication.update += OnEditorUpdate;
 		}
 
 		private void OnDisable()
@@ -66,6 +81,51 @@ namespace com.ktgame.core.di.editor
 			SceneManager.sceneLoaded -= OnSceneLoaded;
 			SceneManager.sceneUnloaded -= OnSceneUnloaded;
 			EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+			EditorApplication.update -= OnEditorUpdate;
+		}
+
+		// The Startup tab only repaints while a report is still changing, so the window does not slow down
+		// the game it is measuring. One last repaint is done when the report settles.
+		private void OnEditorUpdate()
+		{
+			if (_tab != Tab.Startup)
+			{
+				_startupLive = false;
+				return;
+			}
+
+			var live = Application.isPlaying && IsStartupLive();
+			if (live || _startupLive)
+			{
+				Repaint();
+			}
+
+			_startupLive = live;
+		}
+
+		private bool IsStartupLive()
+		{
+			if (_startupCategory == StartupCategory.Services)
+			{
+				var report = ArchitectureInitReport.Last;
+				return report == null || !report.Settled;
+			}
+
+			var reports = SceneManagersInitReport.AllReports;
+			if (reports.Count == 0)
+			{
+				return true;
+			}
+
+			for (var i = 0; i < reports.Count; i++)
+			{
+				if (!reports[i].Settled)
+				{
+					return true;
+				}
+			}
+
+			return false;
 		}
 
 		private async void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -222,11 +282,6 @@ namespace com.ktgame.core.di.editor
 			if (_tab == Tab.Startup)
 			{
 				PresentStartup();
-				if (Application.isPlaying)
-				{
-					Repaint();
-				}
-
 				return;
 			}
 
@@ -371,6 +426,23 @@ namespace com.ktgame.core.di.editor
 
 		private void PresentStartup()
 		{
+			using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
+			{
+				_startupCategory = (StartupCategory)GUILayout.Toolbar((int)_startupCategory, CategoryNames, EditorStyles.toolbarButton, GUILayout.Height(ToolbarHeight));
+			}
+
+			if (_startupCategory == StartupCategory.Services)
+			{
+				PresentStartupServices();
+			}
+			else
+			{
+				PresentStartupManagers();
+			}
+		}
+
+		private void PresentStartupServices()
+		{
 			if (Event.current.type == EventType.Layout)
 			{
 				_startupReport = ArchitectureInitReport.Last;
@@ -423,7 +495,12 @@ namespace com.ktgame.core.di.editor
 				EditorGUILayout.LabelField("Services", EditorStyles.miniBoldLabel, GUILayout.Width(60));
 				GUILayout.FlexibleSpace();
 				EditorGUILayout.LabelField("Sort", GUILayout.Width(30));
-				_startupSort = (StartupSort)EditorGUILayout.Popup((int)_startupSort, SortNames, GUILayout.Width(150));
+				var newSort = (StartupSort)EditorGUILayout.Popup((int)_startupSort, SortNames, GUILayout.Width(150));
+				if (newSort != _startupSort)
+				{
+					_startupSort = newSort;
+					_startupRows = SortRecords(report.Services).ToList();
+				}
 			}
 
 			PresentServiceHeader();
@@ -435,11 +512,172 @@ namespace com.ktgame.core.di.editor
 			GUILayout.Space(8);
 			EditorGUILayout.HelpBox(
 				"Sync = work done before OnInitialize returned: it blocks the frame (yellow > 16.7 ms, red > 50 ms).\n" +
+				"Max frame = longest frame while the service was running: also catches main-thread work after the first await, which Sync misses. " +
+				"Services running at the same time (Background + Main) share the same frames.\n" +
 				"Total = until OnInitialize finished, waiting (network, SDK) included. Waiting does not freeze the game when Frames is high.\n" +
 				"A long Total with few Frames means some frames were very long while that service was running.",
 				MessageType.None);
 
 			EditorGUILayout.EndScrollView();
+		}
+
+		private void PresentStartupManagers()
+		{
+			var reports = SceneManagersInitReport.AllReports;
+			if (reports.Count == 0 && SceneManagersInitReport.Last == null)
+			{
+				EditorGUILayout.HelpBox("No scene managers recorded yet. Enter Play Mode and load a scene: the startup timings of the scene managers appear here " +
+				                        "and stay visible after Play Mode stops.", MessageType.Info);
+				return;
+			}
+
+			if (Event.current.type == EventType.Layout)
+			{
+				if (_selectedSceneIndex < 0 || _selectedSceneIndex >= reports.Count)
+				{
+					_selectedSceneIndex = reports.Count > 0 ? reports.Count - 1 : 0;
+				}
+
+				_currentManagerReport = reports.Count > 0 ? reports[_selectedSceneIndex] : SceneManagersInitReport.Last;
+				_managerRows = _currentManagerReport != null ? SortManagerRecords(_currentManagerReport.Managers).ToList() : new List<ManagerInitRecord>();
+			}
+
+			var report = _currentManagerReport;
+			if (report == null)
+			{
+				EditorGUILayout.HelpBox("No scene manager report available.", MessageType.Info);
+				return;
+			}
+
+			_startupScrollPosition = EditorGUILayout.BeginScrollView(_startupScrollPosition);
+			GUILayout.Space(6);
+
+			if (reports.Count > 1)
+			{
+				using (new EditorGUILayout.HorizontalScope())
+				{
+					EditorGUILayout.LabelField("Scene:", GUILayout.Width(50));
+					var sceneNames = reports.Select(r => r.SceneName).ToArray();
+					var newIndex = EditorGUILayout.Popup(_selectedSceneIndex, sceneNames, GUILayout.Width(200));
+					if (newIndex != _selectedSceneIndex)
+					{
+						_selectedSceneIndex = newIndex;
+						_currentManagerReport = reports[_selectedSceneIndex];
+						_managerRows = SortManagerRecords(_currentManagerReport.Managers).ToList();
+					}
+					GUILayout.FlexibleSpace();
+				}
+				GUILayout.Space(4);
+			}
+
+			var state = report.Finished
+				? Application.isPlaying ? "finished" : "finished (last Play Mode run)"
+				: Application.isPlaying ? "running..." : "stopped before finishing";
+			EditorGUILayout.LabelField($"{report.SceneName} Managers startup — {state}", EditorStyles.boldLabel);
+
+			PresentSummaryRow("Ready (All managers initialized)",
+				report.Finished ? $"{report.TotalInitMs:F1} ms over {report.TotalFrames} frame(s)" : $"running {report.ElapsedMs:F0} ms",
+				report.Finished ? (Color?)null : Color.yellow);
+
+			PresentSummaryRow("Binding & Resolve (OnInstallManagers)",
+				$"{report.InstallBindingMs:F1} ms",
+				GetCostColor(report.InstallBindingMs));
+
+			PresentSummaryRow("Longest frame while starting",
+				report.LongestFrameMs > 0 ? $"{report.LongestFrameMs:F1} ms (frame {report.LongestFrameNumber})" : "-",
+				GetCostColor(report.LongestFrameMs));
+
+			PresentSummaryRow("Total managers registered",
+				report.Managers.Count.ToString(),
+				null);
+
+			GUILayout.Space(8);
+			using (new EditorGUILayout.HorizontalScope())
+			{
+				EditorGUILayout.LabelField("Managers", EditorStyles.miniBoldLabel, GUILayout.Width(70));
+				GUILayout.FlexibleSpace();
+				EditorGUILayout.LabelField("Sort", GUILayout.Width(30));
+				var newSort = (StartupSort)EditorGUILayout.Popup((int)_startupSort, SortNames, GUILayout.Width(150));
+				if (newSort != _startupSort)
+				{
+					_startupSort = newSort;
+					_managerRows = SortManagerRecords(report.Managers).ToList();
+				}
+			}
+
+			PresentManagerHeader();
+			foreach (var record in _managerRows)
+			{
+				PresentManagerRow(record);
+			}
+
+			GUILayout.Space(8);
+			EditorGUILayout.HelpBox(
+				"Sync = work done before Initialize() returned: it blocks the frame (yellow > 16.7 ms, red > 50 ms).\n" +
+				"Max frame = longest frame while the manager was running: also catches main-thread work after the first await, which Sync misses.\n" +
+				"Total = until Initialize() finished (async I/O, load config, network included).\n" +
+				"A long Total with few Frames means some frames were very long while that manager was running.",
+				MessageType.None);
+
+			EditorGUILayout.EndScrollView();
+		}
+
+		private IEnumerable<ManagerInitRecord> SortManagerRecords(IReadOnlyList<ManagerInitRecord> records)
+		{
+			switch (_startupSort)
+			{
+				case StartupSort.Sync:
+					return records.OrderByDescending(r => r.SyncMs);
+				case StartupSort.Total:
+					return records.OrderByDescending(r => r.ElapsedMs);
+				case StartupSort.LongestFrame:
+					return records.OrderByDescending(r => r.LongestFrameMs);
+				default:
+					return records.OrderBy(r => r.Order);
+			}
+		}
+
+		private static void PresentManagerHeader()
+		{
+			using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
+			{
+				GUILayout.Label("Manager", EditorStyles.miniBoldLabel, GUILayout.MinWidth(170));
+				GUILayout.Label("Contract", EditorStyles.miniBoldLabel, GUILayout.Width(140));
+				GUILayout.Label("Priority", EditorStyles.miniBoldLabel, GUILayout.Width(50));
+				GUILayout.Label("Start", EditorStyles.miniBoldLabel, GUILayout.Width(70));
+				GUILayout.Label("Sync", EditorStyles.miniBoldLabel, GUILayout.Width(70));
+				GUILayout.Label("Max frame", EditorStyles.miniBoldLabel, GUILayout.Width(75));
+				GUILayout.Label("Total", EditorStyles.miniBoldLabel, GUILayout.Width(80));
+				GUILayout.Label("Frames", EditorStyles.miniBoldLabel, GUILayout.Width(50));
+			}
+		}
+
+		private static void PresentManagerRow(ManagerInitRecord record)
+		{
+			using (new EditorGUILayout.HorizontalScope())
+			{
+				var name = new GUIContent(record.ManagerName, record.ContractName);
+				var nameStyle = record.Failed ? ColoredLabel(Color.red) : EditorStyles.label;
+				GUILayout.Label(record.Failed ? new GUIContent(record.ManagerName + " (failed)", record.ContractName) : name, nameStyle, GUILayout.MinWidth(170));
+				GUILayout.Label(record.ContractName ?? "-", GUILayout.Width(140));
+				GUILayout.Label(record.Priority.ToString(), GUILayout.Width(50));
+				GUILayout.Label($"{record.StartMs:F0} ms", GUILayout.Width(70));
+
+				var syncColor = GetCostColor(record.SyncMs);
+				GUILayout.Label($"{record.SyncMs:F1} ms", syncColor.HasValue ? ColoredLabel(syncColor.Value) : EditorStyles.label, GUILayout.Width(70));
+				PresentLongestFrame(record.LongestFrameMs);
+
+				if (record.Completed)
+				{
+					GUILayout.Label($"{record.TotalMs:F1} ms", GUILayout.Width(80));
+					GUILayout.Label(record.Frames.ToString(), GUILayout.Width(50));
+				}
+				else
+				{
+					GUILayout.Label($"{record.ElapsedMs:F0} ms...", ColoredLabel(Color.yellow), GUILayout.Width(80));
+					GUILayout.Label("-", GUILayout.Width(50));
+				}
+			}
 		}
 
 		private IEnumerable<ServiceInitRecord> SortRecords(IReadOnlyList<ServiceInitRecord> records)
@@ -450,6 +688,8 @@ namespace com.ktgame.core.di.editor
 					return records.OrderByDescending(r => r.SyncMs);
 				case StartupSort.Total:
 					return records.OrderByDescending(r => r.ElapsedMs);
+				case StartupSort.LongestFrame:
+					return records.OrderByDescending(r => r.LongestFrameMs);
 				default:
 					return records.OrderBy(r => r.Background).ThenBy(r => r.Order);
 			}
@@ -464,6 +704,7 @@ namespace com.ktgame.core.di.editor
 				GUILayout.Label("Priority", EditorStyles.miniBoldLabel, GUILayout.Width(50));
 				GUILayout.Label("Start", EditorStyles.miniBoldLabel, GUILayout.Width(70));
 				GUILayout.Label("Sync", EditorStyles.miniBoldLabel, GUILayout.Width(70));
+				GUILayout.Label("Max frame", EditorStyles.miniBoldLabel, GUILayout.Width(75));
 				GUILayout.Label("Total", EditorStyles.miniBoldLabel, GUILayout.Width(80));
 				GUILayout.Label("Frames", EditorStyles.miniBoldLabel, GUILayout.Width(50));
 			}
@@ -482,6 +723,7 @@ namespace com.ktgame.core.di.editor
 
 				var syncColor = GetCostColor(record.SyncMs);
 				GUILayout.Label($"{record.SyncMs:F1} ms", syncColor.HasValue ? ColoredLabel(syncColor.Value) : EditorStyles.label, GUILayout.Width(70));
+				PresentLongestFrame(record.LongestFrameMs);
 
 				if (record.Completed)
 				{
@@ -494,6 +736,12 @@ namespace com.ktgame.core.di.editor
 					GUILayout.Label("-", GUILayout.Width(50));
 				}
 			}
+		}
+
+		private static void PresentLongestFrame(double ms)
+		{
+			var color = GetCostColor(ms);
+			GUILayout.Label(ms > 0 ? $"{ms:F1} ms" : "-", color.HasValue ? ColoredLabel(color.Value) : EditorStyles.label, GUILayout.Width(75));
 		}
 
 		private static void PresentSummaryRow(string label, string value, Color? color)

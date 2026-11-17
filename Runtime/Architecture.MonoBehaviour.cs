@@ -18,10 +18,9 @@ namespace com.ktgame.core
 
 		private void Update()
 		{
-			if (InitReport != null && Time.frameCount > InitReport.StartFrame)
-			{
-				InitReport.TrackFrame(Time.unscaledDeltaTime);
-			}
+			// Startup timings: services of this architecture and managers of the loaded scenes.
+			InitReport?.TrackFrame(Time.unscaledDeltaTime);
+			com.ktgame.core.manager.SceneManagersInitReport.TrackAll(Time.unscaledDeltaTime);
 
 			if (_architecture == null)
 			{

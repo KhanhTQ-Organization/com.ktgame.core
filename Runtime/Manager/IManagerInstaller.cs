@@ -6,6 +6,7 @@ namespace com.ktgame.core.manager
 	public interface IManagerInstaller
 	{
 		IEnumerable<IManager> Managers { get; }
+		IReadOnlyDictionary<Type, IManager> Bindings { get; }
 
 		IManagerInstaller Binding<TManager>(TManager instance) where TManager : IManager;
 

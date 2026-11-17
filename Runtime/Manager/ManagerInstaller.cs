@@ -7,6 +7,7 @@ namespace com.ktgame.core.manager
 	public class ManagerInstaller : IManagerInstaller
 	{
 		public IEnumerable<IManager> Managers => _managers.Values;
+		public IReadOnlyDictionary<Type, IManager> Bindings => _managers;
 
 		private readonly IInjector _injector;
 		private readonly Dictionary<Type, IManager> _managers;
@@ -21,15 +22,16 @@ namespace com.ktgame.core.manager
 		{
 			_injector.AddSingleton(instance, typeof(TManager));
 			_injector.Resolve(instance);
-			_managers.Add(typeof(TManager), instance);
+			_managers[typeof(TManager)] = instance;
 			return this;
 		}
 
 		public IManagerInstaller Binding<TManager>(Type type, TManager instance) where TManager : IManager
 		{
-			_injector.AddSingleton(instance, type);
+			var bindingType = type ?? instance?.GetType() ?? typeof(TManager);
+			_injector.AddSingleton(instance, bindingType);
 			_injector.Resolve(instance);
-			_managers.Add(type, instance);
+			_managers[bindingType] = instance;
 			return this;
 		}
 
